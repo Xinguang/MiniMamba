@@ -22,13 +22,26 @@
 
 ---
 
-## 🛠️ Installation
+## 📦 Installation
+
+You can install MiniMamba in two ways:
+
+### ✅ Option 1: Install from PyPI (recommended)
+
+```bash
+pip install minimamba
+```
+
+### 💻 Option 2: Install from source (for development or latest version)
 
 ```bash
 git clone https://github.com/Xinguang/MiniMamba.git
 cd MiniMamba
-pip install -r requirements.txt
+pip install -e .
 ```
+
+> Note: This installs in “editable” mode (`-e`), so changes to the source code take effect immediately.
+
 
 > ✅ Requirements:
 >

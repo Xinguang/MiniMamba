@@ -29,10 +29,23 @@
 
 ## 📦 安装方法
 
+你可以通过以下两种方式安装 MiniMamba：
+
+### ✅ 方式一：通过 PyPI 官方源安装（推荐）
+
+```bash
+pip install minimamba
+```
+
+### 💻 方式二：从源码安装（用于开发或最新代码）
+
 ```bash
 git clone https://github.com/Xinguang/MiniMamba.git
 cd MiniMamba
-pip install -r requirements.txt
+pip install -e .
+```
+
+> 注：`-e` 表示“可编辑模式”，源码改动可立即生效。
 ```
 
 > ✅ 依赖要求：
