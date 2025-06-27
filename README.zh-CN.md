@@ -46,7 +46,6 @@ pip install -e .
 ```
 
 > 注：`-e` 表示“可编辑模式”，源码改动可立即生效。
-```
 
 > ✅ 依赖要求：
 >
@@ -80,25 +79,27 @@ Inference time: 0.1524 seconds
 
 ```python
 import torch
-from minimamba import Mamba
+from minimamba import Mamba, MambaConfig
 
-# 1. 模型配置
-config = {
-    'd_model': 512,
-    'n_layer': 6,
-    'vocab_size': 10000,
-    'd_state': 16,
-    'd_conv': 4,
-    'expand': 2,
-}
+# 1. 使用 MambaConfig 类定义模型配置
+config = MambaConfig(
+    d_model=512,
+    n_layer=6,
+    vocab_size=10000,
+    d_state=16,
+    d_conv=4,
+    expand=2,
+)
 
-# 2. 初始化模型
-model = Mamba(**config)
+# 2. 使用配置对象初始化模型
+model = Mamba(config=config)
 
 # 3. 构造输入
-input_ids = torch.randint(0, config['vocab_size'], (2, 128))
+input_ids = torch.randint(0, config.vocab_size, (2, 128))
 logits = model(input_ids)
-print(logits.shape)  # torch.Size([2, 128, 10000])
+
+# 注意：为了性能，输出词表大小可能被填充
+print(logits.shape)  # torch.Size([2, 128, 10008])
 ```
 
 ### 🔁 自回归推理（支持缓存）
@@ -112,11 +113,11 @@ class InferenceCache:
 inference_params = InferenceCache()
 
 # 模拟逐 token 生成
-input1 = torch.randint(0, config['vocab_size'], (1, 1))
+input1 = torch.randint(0, config.vocab_size, (1, 1))
 logits1 = model(input1, inference_params=inference_params)
 inference_params.seqlen_offset += 1
 
-input2 = torch.randint(0, config['vocab_size'], (1, 1))
+input2 = torch.randint(0, config.vocab_size, (1, 1))
 logits2 = model(input2, inference_params=inference_params)
 ```
 
@@ -143,6 +144,7 @@ pytest tests/
 ```
 MiniMamba/
 ├── minimamba/              # 模型核心模块
+│   ├── config.py           # MambaConfig 配置类
 │   ├── model.py            # 完整模型定义
 │   ├── block.py            # MambaBlock（带残差）
 │   ├── s6.py               # S6 状态空间层

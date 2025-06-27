@@ -42,7 +42,6 @@ pip install -e .
 
 > Note: This installs in “editable” mode (`-e`), so changes to the source code take effect immediately.
 
-
 > ✅ Requirements:
 >
 > * Python ≥ 3.8
@@ -75,25 +74,27 @@ Inference time: 0.1524 seconds
 
 ```python
 import torch
-from minimamba import Mamba
+from minimamba import Mamba, MambaConfig
 
-# 1. Define config
-config = {
-    'd_model': 512,
-    'n_layer': 6,
-    'vocab_size': 10000,
-    'd_state': 16,
-    'd_conv': 4,
-    'expand': 2,
-}
+# 1. Define config using the MambaConfig class
+config = MambaConfig(
+    d_model=512,
+    n_layer=6,
+    vocab_size=10000,
+    d_state=16,
+    d_conv=4,
+    expand=2,
+)
 
-# 2. Initialize model
-model = Mamba(**config)
+# 2. Initialize model with the config object
+model = Mamba(config=config)
 
 # 3. Dummy input
-input_ids = torch.randint(0, config['vocab_size'], (2, 128))
+input_ids = torch.randint(0, config.vocab_size, (2, 128))
 logits = model(input_ids)
-print(logits.shape)  # torch.Size([2, 128, 10000])
+
+# The output vocab size might be padded for performance
+print(logits.shape)  # torch.Size([2, 128, 10008])
 ```
 
 ### 🔁 Autoregressive Inference with Caching
@@ -107,11 +108,11 @@ class InferenceCache:
 inference_params = InferenceCache()
 
 # Simulate token-by-token generation
-input1 = torch.randint(0, config['vocab_size'], (1, 1))
+input1 = torch.randint(0, config.vocab_size, (1, 1))
 logits1 = model(input1, inference_params=inference_params)
 inference_params.seqlen_offset += 1
 
-input2 = torch.randint(0, config['vocab_size'], (1, 1))
+input2 = torch.randint(0, config.vocab_size, (1, 1))
 logits2 = model(input2, inference_params=inference_params)
 ```
 
@@ -138,6 +139,7 @@ Includes:
 ```
 MiniMamba/
 ├── minimamba/              # Core model components
+│   ├── config.py           # MambaConfig class
 │   ├── model.py            # Mamba model class
 │   ├── block.py            # MambaBlock with residuals
 │   ├── s6.py               # Selective State Space layer

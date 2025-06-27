@@ -79,25 +79,27 @@ Inference time: 0.1524 seconds
 
 ```python
 import torch
-from minimamba import Mamba
+from minimamba import Mamba, MambaConfig
 
-# モデル構成
-config = {
-    'd_model': 512,
-    'n_layer': 6,
-    'vocab_size': 10000,
-    'd_state': 16,
-    'd_conv': 4,
-    'expand': 2,
-}
+# 1. MambaConfig クラスでモデル構成を定義
+config = MambaConfig(
+    d_model=512,
+    n_layer=6,
+    vocab_size=10000,
+    d_state=16,
+    d_conv=4,
+    expand=2,
+)
 
-# モデル初期化
-model = Mamba(**config)
+# 2. 構成オブジェクトでモデルを初期化
+model = Mamba(config=config)
 
-# ダミー入力
-input_ids = torch.randint(0, config['vocab_size'], (2, 128))
+# 3. ダミー入力
+input_ids = torch.randint(0, config.vocab_size, (2, 128))
 logits = model(input_ids)
-print(logits.shape)  # torch.Size([2, 128, 10000])
+
+# 注意：パフォーマンスのため、出力の語彙サイズはパディングされる場合があります
+print(logits.shape)  # torch.Size([2, 128, 10008])
 ```
 
 ### 🔁 自動回帰生成（キャッシュ付き）
@@ -111,11 +113,11 @@ class InferenceCache:
 inference_params = InferenceCache()
 
 # 1トークンずつの生成シミュレーション
-input1 = torch.randint(0, config['vocab_size'], (1, 1))
+input1 = torch.randint(0, config.vocab_size, (1, 1))
 logits1 = model(input1, inference_params=inference_params)
 inference_params.seqlen_offset += 1
 
-input2 = torch.randint(0, config['vocab_size'], (1, 1))
+input2 = torch.randint(0, config.vocab_size, (1, 1))
 logits2 = model(input2, inference_params=inference_params)
 ```
 
@@ -142,6 +144,7 @@ pytest tests/
 ```
 MiniMamba/
 ├── minimamba/              # モデル本体
+│   ├── config.py           # MambaConfig 構成クラス
 │   ├── model.py            # Mamba モデルクラス
 │   ├── block.py            # MambaBlock（正規化 + 残差）
 │   ├── s6.py               # S6 状態空間層
