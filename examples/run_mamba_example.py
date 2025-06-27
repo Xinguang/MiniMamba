@@ -6,20 +6,21 @@ import os
 # Add the parent directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from minimamba.model import Mamba
+from minimamba import Mamba
+from minimamba import MambaConfig
 
 def main():
     # ----------------------------------------
     # 1. Define model configuration
     # ----------------------------------------
-    config = {
-        'd_model': 512,
-        'n_layer': 6,
-        'vocab_size': 10000,
-        'd_state': 16,
-        'd_conv': 4,
-        'expand': 2,
-    }
+    config = MambaConfig(
+        d_model=512,
+        n_layer=6,
+        vocab_size=10000,
+        d_state=16,
+        d_conv=4,
+        expand=2,
+    )
 
     # ----------------------------------------
     # 2. Select device (MPS > CUDA > CPU)
@@ -37,11 +38,11 @@ def main():
     # ----------------------------------------
     # 3. Initialize model and inputs
     # ----------------------------------------
-    model = Mamba(**config).to(device)
+    model = Mamba(config=config).to(device)
 
     batch_size = 2
     seq_len = 128
-    input_ids = torch.randint(0, config['vocab_size'], (batch_size, seq_len)).to(device)
+    input_ids = torch.randint(0, config.vocab_size, (batch_size, seq_len)).to(device)
 
     print(f"Total model parameters: {sum(p.numel() for p in model.parameters()):,}")
     print(f"Input shape: {input_ids.shape}")

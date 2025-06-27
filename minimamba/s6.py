@@ -5,6 +5,8 @@ from torch import Tensor
 from typing import Optional, Tuple
 import math
 
+from .config import MambaConfig
+
 class S6(nn.Module):
     """
     S6 (Selective State Space) layer - Core of Mamba architecture.
@@ -13,45 +15,29 @@ class S6(nn.Module):
     This implementation includes a mathematically correct parallel scan
     that works efficiently on macOS M4 Pro (MPS backend).
     """
-    def __init__(
-        self,
-        d_model: int,
-        d_state: int = 16,
-        d_conv: int = 4,
-        expand: int = 2,
-        dt_rank: str = "auto",
-        dt_min: float = 0.001,
-        dt_max: float = 0.1,
-        dt_init: str = "random",
-        dt_scale: float = 1.0,
-        dt_init_floor: float = 1e-4,
-        conv_bias: bool = True,
-        bias: bool = False,
-        use_fast_path: bool = True,
-        layer_idx: Optional[int] = None
-    ):
+    def __init__(self, config: MambaConfig, layer_idx: Optional[int] = None):
         super().__init__()
 
-        self.d_model = d_model
-        self.d_state = d_state
-        self.d_conv = d_conv
-        self.expand = expand
-        self.d_inner = int(self.expand * self.d_model)
-        self.dt_rank = math.ceil(self.d_model / 16) if dt_rank == "auto" else dt_rank
-        self.use_fast_path = use_fast_path
+        self.d_model = config.d_model
+        self.d_state = config.d_state
+        self.d_conv = config.d_conv
+        self.expand = config.expand
+        self.d_inner = config.d_inner
+        self.dt_rank = config.dt_rank
+        self.use_fast_path = config.use_fast_path
         self.layer_idx = layer_idx
 
         # Linear input projection
-        self.in_proj = nn.Linear(self.d_model, self.d_inner * 2, bias=bias)
+        self.in_proj = nn.Linear(self.d_model, self.d_inner * 2, bias=config.bias)
 
         # Depthwise convolution for local interaction
         self.conv1d = nn.Conv1d(
             in_channels=self.d_inner,
             out_channels=self.d_inner,
-            kernel_size=d_conv,
+            kernel_size=config.d_conv,
             groups=self.d_inner,
-            bias=conv_bias,
-            padding=d_conv - 1
+            bias=config.conv_bias,
+            padding=config.d_conv - 1
         )
 
         # Activation function (SiLU)
@@ -62,16 +48,16 @@ class S6(nn.Module):
         self.dt_proj = nn.Linear(self.dt_rank, self.d_inner, bias=True)
 
         # Initialize dt_proj weight
-        dt_init_std = self.dt_rank ** -0.5 * dt_scale
-        if dt_init == "constant":
+        dt_init_std = self.dt_rank ** -0.5 * config.dt_scale
+        if config.dt_init == "constant":
             nn.init.constant_(self.dt_proj.weight, dt_init_std)
-        elif dt_init == "random":
+        elif config.dt_init == "random":
             nn.init.uniform_(self.dt_proj.weight, -dt_init_std, dt_init_std)
 
         # Initialize dt bias using log-uniform sampling
         dt = torch.exp(
-            torch.rand(self.d_inner) * (math.log(dt_max) - math.log(dt_min)) + math.log(dt_min)
-        ).clamp(min=dt_init_floor)
+            torch.rand(self.d_inner) * (math.log(config.dt_max) - math.log(config.dt_min)) + math.log(config.dt_min)
+        ).clamp(min=config.dt_init_floor)
         inv_dt = dt + torch.log(-torch.expm1(-dt))
         with torch.no_grad():
             self.dt_proj.bias.copy_(inv_dt)
@@ -87,7 +73,7 @@ class S6(nn.Module):
         self.D._no_weight_decay = True
 
         # Output projection
-        self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias)
+        self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=config.bias)
 
     def forward(self, hidden_states: Tensor, inference_params=None) -> Tensor:
         """

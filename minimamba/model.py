@@ -4,48 +4,32 @@ from torch import Tensor
 
 from .block import MambaBlock
 from .norm import RMSNorm
+from .config import MambaConfig
 
 class Mamba(nn.Module):
     """
     Complete Mamba model with multiple layers.
     Includes embedding, stacked MambaBlocks, normalization, and output head.
     """
-    def __init__(
-        self,
-        d_model: int,
-        n_layer: int,
-        vocab_size: int,
-        d_state: int = 16,
-        d_conv: int = 4,
-        expand: int = 2,
-        pad_vocab_size_multiple: int = 1,
-        norm_epsilon: float = 1e-5,
-        **kwargs
-    ):
+    def __init__(self, config: MambaConfig):
         super().__init__()
+        self.config = config
 
-        self.d_model = d_model
-        self.n_layer = n_layer
-        self.vocab_size = vocab_size
-
-        # Pad vocab size to be divisible by a multiple (for efficient matmul)
-        if vocab_size % pad_vocab_size_multiple != 0:
-            vocab_size += pad_vocab_size_multiple - (vocab_size % pad_vocab_size_multiple)
-
+        # --- FIX: Use the pre-calculated padded_vocab_size from the config ---
         # Token embedding
-        self.embedding = nn.Embedding(vocab_size, d_model)
+        self.embedding = nn.Embedding(config.padded_vocab_size, config.d_model)
 
         # Stacked MambaBlocks
         self.layers = nn.ModuleList([
-            MambaBlock(d_model, d_state, d_conv, expand, norm_epsilon, **kwargs)
-            for _ in range(n_layer)
+            MambaBlock(config) for _ in range(config.n_layer)
         ])
 
         # Final normalization
-        self.norm_f = RMSNorm(d_model, eps=norm_epsilon)
+        self.norm_f = RMSNorm(config.d_model, eps=config.norm_epsilon)
 
+        # --- FIX: Use the pre-calculated padded_vocab_size from the config ---
         # Output linear layer
-        self.lm_head = nn.Linear(d_model, vocab_size, bias=False)
+        self.lm_head = nn.Linear(config.d_model, config.padded_vocab_size, bias=False)
 
         # Weight tying
         self.lm_head.weight = self.embedding.weight
