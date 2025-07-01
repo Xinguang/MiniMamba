@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="minimamba",
-    version="0.1.0",
+    version="0.2.0",
     description="Minimal PyTorch implementation of Mamba (Selective State Space Model)",
     author="Xinguang",
     author_email="minimanba.github@kansea.com",
