@@ -1,17 +1,18 @@
 import torch
 import torch.nn as nn
 from torch import Tensor
+from typing import Type, Optional
 
 from .s6 import S6
 from .norm import RMSNorm
-from .config import MambaConfig
+from .config import BaseMambaConfig, MambaConfig
 
 class MambaBlock(nn.Module):
     """
     A single Mamba block with pre-normalization and residual connection.
     Combines normalization, the S6 mixer, and residual addition.
     """
-    def __init__(self, config: MambaConfig):
+    def __init__(self, config: BaseMambaConfig, mixer_cls: Optional[Type] = None):
         super().__init__()
 
         self.config = config
@@ -22,8 +23,9 @@ class MambaBlock(nn.Module):
         else:
             self.norm = nn.LayerNorm(config.d_model, eps=config.norm_epsilon)
 
-        # S6 (Selective State Space) mixer layer
-        self.mixer = S6(config=config)
+        # S6 (Selective State Space) mixer layer - now pluggable
+        mixer_class = mixer_cls or S6
+        self.mixer = mixer_class(config=config)
 
     def forward(self, hidden_states: Tensor, inference_params=None) -> Tensor:
         """
