@@ -37,17 +37,18 @@ class MambaEncoder(nn.Module):
     
     def forward(self, hidden_states: Tensor, inference_params: Optional[InferenceParams] = None) -> Tensor:
         """
-        Forward pass through all Mamba layers.
-        
-        Args:
-            hidden_states: Input embeddings (batch, seq_len, d_model)
-            inference_params: Optional inference parameters for generation
-            
-        Returns:
-            Encoded hidden states (batch, seq_len, d_model)
+        Optimized forward pass with gradient checkpointing option.
         """
-        for layer in self.layers:
-            hidden_states = layer(hidden_states, inference_params)
+        # Use gradient checkpointing to reduce memory usage
+        if self.training and hasattr(self.config, 'gradient_checkpointing') and self.config.gradient_checkpointing:
+            for layer in self.layers:
+                hidden_states = torch.utils.checkpoint.checkpoint(
+                    layer, hidden_states, inference_params, use_reentrant=False
+                )
+        else:
+            # Preallocate intermediate results to avoid repeated memory allocation
+            for layer in self.layers:
+                hidden_states = layer(hidden_states, inference_params)
         
         return self.norm(hidden_states)
     

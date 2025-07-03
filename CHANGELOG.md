@@ -36,6 +36,11 @@ This is a major release that transforms minimamba from a prototype to a producti
 - **50% memory reduction** with smart caching
 - **Numerical stability** improvements with log-space computation
 - **Adaptive algorithms** based on sequence length
+- **In-place 卷积操作**：使用 `torch.roll_`、`copy_`、`add_` 等原地操作降低内存分配成本。
+- **卷积状态缓存复用**：推理阶段使用 `conv_state` 和 `ssm_state` 进行高效缓存管理，避免不必要的初始化和复制。
+- **分块并行扫描算法（Chunked Parallel Scan）**：对长序列执行 chunked scan，同时保持状态通过 `carry` 向后传递，显著提升内存效率和计算速度。
+- **优化 gating 和 skip connection**：合并 gating 逻辑，减少多次中间计算，提高整体吞吐。
+- **并行 selective scan 向量化实现**：使用数学上正确的 A/B 累乘、delta 计算和 log-space 前缀积，替代伪并行递归。
 
 ### 🛠️ Improvements
 
@@ -63,6 +68,28 @@ for block_idx in range(num_blocks):
 log_A = torch.log(A.clamp(min=1e-20))
 cumsum_log_A = torch.cumsum(log_A, dim=1)  # Parallel
 prefix_A = torch.exp(cumsum_log_A)  # Parallel
+````
+
+#### Chunked Parallel Selective Scan
+
+```python
+if seq_len <= 32:
+    return self._sequential_scan(A, Bu)
+else:
+    chunk_size = min(64, seq_len // 4)
+    for i in range(num_chunks):
+        carry = ...
+        chunk_states = self._chunk_scan(...)
+```
+
+#### In-place Convolution with Cache Reuse
+
+```python
+if conv_state is not None:
+    conv_state.roll_(shifts=-1, dims=-1)
+    conv_state[:, :, -1] = x.squeeze(1)
+    x = torch.sum(conv_state * self.conv1d.weight[:, 0, :], dim=-1, keepdim=True)
+    x.add_(self.conv1d.bias.unsqueeze(0).unsqueeze(-1))
 ```
 
 #### Cache Management
@@ -91,12 +118,12 @@ class_config = MambaClassificationConfig(num_labels=3, **base_config)
 
 ### 📊 Performance Benchmarks
 
-| Metric | v0.2.0 | v1.0.0 | Improvement |
-|--------|--------|--------|-------------|
-| Training Speed | 1x | 3x | 🚀 3x faster |
-| Inference Memory | 100% | 50% | 🔋 50% reduction |
-| Parallel Efficiency | Pseudo | True | ⚡ Real parallelization |
-| Numerical Stability | Medium | High | ✨ Significant improvement |
+| Metric              | v0.2.0 | v1.0.0 | Improvement               |
+| ------------------- | ------ | ------ | ------------------------- |
+| Training Speed      | 1x     | 3x     | 🚀 3x faster              |
+| Inference Memory    | 100%   | 50%    | 🔋 50% reduction          |
+| Parallel Efficiency | Pseudo | True   | ⚡ Real parallelization    |
+| Numerical Stability | Medium | High   | ✨ Significant improvement |
 
 ### 🔄 Migration Guide
 

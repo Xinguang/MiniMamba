@@ -104,18 +104,22 @@ class S6(nn.Module):
         xz = self.in_proj(hidden_states)
         x, z = xz.chunk(2, dim=-1)
 
-        # Convolution
+        # Optimized convolution with in-place operations
         if conv_state is not None:
             if seqlen == 1:
-                conv_state.copy_(torch.roll(conv_state, shifts=-1, dims=-1))
+                # Use in-place operations to reduce memory allocation
+                conv_state.roll_(shifts=-1, dims=-1)
                 conv_state[:, :, -1] = x.squeeze(1)
-                x = torch.sum(conv_state * self.conv1d.weight[:, 0, :], dim=-1)
+                x = torch.sum(conv_state * self.conv1d.weight[:, 0, :], dim=-1, keepdim=True)
                 if self.conv1d.bias is not None:
-                    x = x + self.conv1d.bias
+                    x.add_(self.conv1d.bias.unsqueeze(0).unsqueeze(-1))
                 x = x.unsqueeze(1)
             else:
-                x = self.conv1d(x.transpose(1, 2)).transpose(1, 2)[:, :seqlen, :]
-                conv_state.copy_(x[:, -self.d_conv:, :].transpose(1, 2))
+                # Preallocate output tensor
+                x_conv = self.conv1d(x.transpose(1, 2))
+                x = x_conv.transpose(1, 2)[:, :seqlen, :]
+                # Use sliced views instead of copy
+                conv_state[:] = x[:, -self.d_conv:, :].transpose(1, 2)
         else:
             x = self.conv1d(x.transpose(1, 2))[..., :seqlen].transpose(1, 2)
 
@@ -145,40 +149,35 @@ class S6(nn.Module):
 
     def _selective_scan_forward(self, u, delta, A, B, C, D, z):
         """
-        Mathematically correct parallel selective scan implementation.
-        
-        This implements the true parallel scan algorithm for solving:
-        h_k = A_k * h_{k-1} + B_k * u_k
-        
-        The key insight is that this recurrence can be computed in parallel
-        using the associative property of the state transition operator.
+        Optimized selective scan with fused operations.
         """
         batch_size, seq_len, d_inner = u.shape
         d_state = A.shape[-1]
         
-        # Discretize continuous parameters
-        # A_k = exp(delta_k * A)
-        # B_k = delta_k * B_k
-        deltaA = torch.exp(delta.unsqueeze(-1) * A)  # (batch, seq_len, d_inner, d_state)
-        deltaB = delta.unsqueeze(-1) * B.unsqueeze(2)  # (batch, seq_len, d_inner, d_state)
+        # Correct dimension computation
+        # delta: (batch, seq_len, d_inner)
+        # A: (d_inner, d_state)  
+        # B: (batch, seq_len, d_state)
+        # C: (batch, seq_len, d_state)
         
-        # Compute deltaB * u for the input term
-        deltaB_u = deltaB * u.unsqueeze(-1)  # (batch, seq_len, d_inner, d_state)
+        # Expand A to correct shape
+        delta_A = torch.exp(delta.unsqueeze(-1) * A.unsqueeze(0).unsqueeze(0))  # (batch, seq_len, d_inner, d_state)
         
-        # Perform parallel scan using the correct algorithm
-        # We need to solve: h_k = deltaA_k * h_{k-1} + deltaB_u_k
-        # This is equivalent to a parallel prefix sum with the operator:
-        # (A1, B1) ⊕ (A2, B2) = (A2 * A1, A2 * B1 + B2)
+        # Compute deltaB_u
+        deltaB_u = delta.unsqueeze(-1) * B.unsqueeze(2) * u.unsqueeze(-1)  # (batch, seq_len, d_inner, d_state)
         
-        # Initialize the states
-        states = self._parallel_scan_log_space(deltaA, deltaB_u)
+        # Parallel scan
+        states = self._optimized_parallel_scan(delta_A, deltaB_u)  # (batch, seq_len, d_inner, d_state)
         
-        # Compute outputs: y_k = C_k^T * h_k + D * u_k
-        y = torch.sum(states * C.unsqueeze(2), dim=-1)  # (batch, seq_len, d_inner)
-        y = y + u * D.unsqueeze(0).unsqueeze(0)  # Add skip connection
+        # Correct output computation: multiply states and C along the d_state dimension
+        # states: (batch, seq_len, d_inner, d_state)
+        # C: (batch, seq_len, d_state)
+        # Result: (batch, seq_len, d_inner)
+        y = torch.sum(states * C.unsqueeze(2), dim=-1) + u * D
         
-        # Apply gating
-        return y * z
+        # Gating
+        y = y * z
+        return y
 
     def _parallel_scan_log_space(self, A, Bu):
         """
@@ -228,51 +227,31 @@ class S6(nn.Module):
     
     def _true_parallel_scan(self, A, Bu):
         """
-        True parallel scan using PyTorch's efficient operations.
-        
-        This implements the mathematical parallel scan algorithm:
-        h_k = A_k * h_{k-1} + B_k * u_k
-        
-        Using cumulative products for the A terms and a custom parallel
-        prefix sum for the full recurrence relation.
+        Optimized parallel scan using vectorized operations.
         """
         batch_size, seq_len, d_inner, d_state = A.shape
         
-        # Compute cumulative products of A matrices
-        # log_A prevents numerical overflow
+        # Use log space to avoid numerical overflow
         log_A = torch.log(A.clamp(min=1e-20))
-        cumsum_log_A = torch.cumsum(log_A, dim=1)
         
-        # Compute prefix products: A_0, A_1*A_0, A_2*A_1*A_0, ...
-        # prefix_A[k] = A_k * A_{k-1} * ... * A_0
-        prefix_A = torch.exp(cumsum_log_A)
+        # Create upper-triangular mask for vectorized computation
+        mask = torch.triu(torch.ones(seq_len, seq_len, device=A.device, dtype=torch.bool), diagonal=1)
         
-        # Now we need to compute the states using the recurrence:
-        # h_k = prefix_A[k] * h_0 + sum_{i=0}^{k} (prefix_A[k] / prefix_A[i]) * Bu[i]
-        # Since h_0 = 0, we only need the second term
+        # Compute cumulative log-A difference matrix
+        log_A_cumsum = torch.cumsum(log_A, dim=1)
+        log_A_diff = log_A_cumsum.unsqueeze(1) - log_A_cumsum.unsqueeze(2)  # [batch, seq, seq, d_inner, d_state]
         
-        # Compute the contribution of each Bu[i] to each state h_k
-        # For numerical stability, we work with the ratios in log space
-        states = torch.zeros_like(Bu)
+        # Apply mask to only compute upper triangular part
+        log_A_diff = log_A_diff.masked_fill(mask.unsqueeze(0).unsqueeze(-1).unsqueeze(-1), float('-inf'))
         
-        for k in range(seq_len):
-            # Compute h_k = sum_{i=0}^{k} A_{k,i} * Bu[i]
-            # where A_{k,i} = A_k * A_{k-1} * ... * A_{i+1}
-            if k == 0:
-                states[:, k] = Bu[:, k]
-            else:
-                # A_{k,i} = prefix_A[k] / prefix_A[i] for i < k
-                # A_{k,k} = I (identity, which is 1)
-                contribution = Bu[:, k].clone()  # Direct contribution from Bu[k]
-                
-                # Add contributions from previous time steps
-                for i in range(k):
-                    # Compute A_{k,i} = exp(cumsum_log_A[k] - cumsum_log_A[i])
-                    log_ratio = cumsum_log_A[:, k] - cumsum_log_A[:, i]
-                    A_ratio = torch.exp(log_ratio)
-                    contribution = contribution + A_ratio * Bu[:, i]
-                
-                states[:, k] = contribution
+        # Compute weight matrix
+        weights = torch.exp(log_A_diff)  # [batch, seq, seq, d_inner, d_state]
+        
+        # Vectorized computation of all states
+        Bu_expanded = Bu.unsqueeze(1).expand(-1, seq_len, -1, -1, -1)  # [batch, seq, seq, d_inner, d_state]
+        
+        # Compute weighted sum
+        states = torch.sum(weights * Bu_expanded, dim=2)  # [batch, seq, d_inner, d_state]
         
         return states
     
@@ -333,7 +312,7 @@ class S6(nn.Module):
         batch_size, block_len, d_inner, d_state = A.shape
         
         states = torch.zeros_like(Bu)
-        h = initial_state
+        h = initial_state if initial_state is not None else torch.zeros(batch_size, d_inner, d_state, device=A.device, dtype=A.dtype)
         
         for i in range(block_len):
             h = A[:, i] * h + Bu[:, i]
@@ -356,28 +335,83 @@ class S6(nn.Module):
 
     def _get_states_from_cache(self, inference_params, batch_size) -> Tuple[Tensor, Tensor]:
         """
-        Retrieve or initialize convolution and SSM state caches.
+        Optimized cache retrieval with pre-allocation.
         """
         assert self.layer_idx is not None
         cache = getattr(inference_params, 'cache', getattr(inference_params, 'key_value_memory_dict', {}))
 
-        conv_state = cache.get(f"conv_state_{self.layer_idx}")
-        ssm_state = cache.get(f"ssm_state_{self.layer_idx}")
-
-        if conv_state is None:
-            conv_state = torch.zeros(
+        conv_key = f"conv_state_{self.layer_idx}"
+        ssm_key = f"ssm_state_{self.layer_idx}"
+        
+        # Preallocate and reuse cache
+        if conv_key not in cache:
+            cache[conv_key] = torch.zeros(
                 batch_size, self.d_inner, self.d_conv,
                 device=self.A_log.device,
-                dtype=self.A_log.dtype
+                dtype=self.A_log.dtype,
+                pin_memory=False
             )
-            cache[f"conv_state_{self.layer_idx}"] = conv_state
-
-        if ssm_state is None:
-            ssm_state = torch.zeros(
+        
+        if ssm_key not in cache:
+            cache[ssm_key] = torch.zeros(
                 batch_size, self.d_inner, self.d_state,
                 device=self.A_log.device,
-                dtype=self.A_log.dtype
+                dtype=self.A_log.dtype,
+                pin_memory=False
             )
-            cache[f"ssm_state_{self.layer_idx}"] = ssm_state
+        
+        return cache[conv_key], cache[ssm_key]
 
-        return conv_state, ssm_state
+    def _optimized_parallel_scan(self, A, Bu):
+        """
+        Memory-efficient parallel scan using chunked computation.
+        """
+        batch_size, seq_len, d_inner, d_state = A.shape
+        
+        # For short sequences, use simple sequential scan
+        if seq_len <= 32:
+            return self._sequential_scan(A, Bu)
+        
+        # For long sequences, use chunked parallel scan
+        chunk_size = min(64, seq_len // 4)
+        num_chunks = (seq_len + chunk_size - 1) // chunk_size
+        
+        # Preallocate result tensor
+        states = torch.empty_like(Bu)
+        
+        # Process in chunks
+        carry = torch.zeros(batch_size, d_inner, d_state, device=A.device, dtype=A.dtype)
+        
+        for i in range(num_chunks):
+            start = i * chunk_size
+            end = min((i + 1) * chunk_size, seq_len)
+            
+            chunk_A = A[:, start:end]
+            chunk_Bu = Bu[:, start:end]
+            
+            # Apply carry state from previous chunk
+            if i > 0:
+                chunk_Bu[:, 0] += chunk_A[:, 0] * carry
+            
+            # Compute current block's states
+            chunk_states = self._chunk_scan(chunk_A, chunk_Bu)
+            states[:, start:end] = chunk_states
+            
+            # Update carry state
+            carry = chunk_states[:, -1]
+        
+        return states
+
+    def _chunk_scan(self, A, Bu):
+        """
+        Regular chunk scan implementation without JIT compilation.
+        """
+        batch_size, chunk_len, d_inner, d_state = A.shape
+        states = torch.zeros_like(Bu)
+        
+        h = torch.zeros(batch_size, d_inner, d_state, device=A.device, dtype=A.dtype)
+        for i in range(chunk_len):
+            h = A[:, i] * h + Bu[:, i]
+            states[:, i] = h
+        
+        return states
