@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/github/stars/Xinguang/MiniMamba?style=for-the-badge"/>
 </p>
 
-**MiniMamba v1.0.0** 是 [Mamba](https://arxiv.org/abs/2312.00752) 架构的 **生产级** PyTorch 实现。它基于 **选择性状态空间模型（S6）**，具有优化的并行扫描算法、模块化架构和全面的缓存支持，同时保持简洁性和教育价值。
+**MiniMamba v1.0.1** 是 [Mamba](https://arxiv.org/abs/2312.00752) 架构的 **生产级** PyTorch 实现。它基于 **选择性状态空间模型（S6）**，具有优化的并行扫描算法、模块化架构和全面的缓存支持，同时保持简洁性和教育价值。
 
 > 📂 GitHub 仓库：[github.com/Xinguang/MiniMamba](https://github.com/Xinguang/MiniMamba)
 > 📋 详细改进：[查看改进文档](./IMPROVEMENTS.md)
@@ -16,7 +16,7 @@
 
 ## ✨ 项目特点
 
-### 🚀 **生产级 v1.0.0**
+### 🚀 **生产级 v1.0.1**
 - ⚡ **3倍训练速度**：真正的并行扫描算法（vs 伪并行）
 - 💾 **50% 内存减少**：智能缓存系统提升推理效率
 - 🏗️ **模块化架构**：可插拔组件和任务特化模型
@@ -175,7 +175,7 @@ logits = model(input_ids)
 
 ## 📊 性能基准
 
-| 指标 | v0.2.0 | **v1.0.0** | 改进 |
+| 指标 | v0.2.0 | **v1.0.1** | 改进 |
 |------|--------|------------|------|
 | 训练速度 | 1x | **3x** | 🚀 3倍提升 |
 | 推理内存 | 100% | **50%** | 💾 减少50% |
@@ -251,7 +251,7 @@ MiniMamba/
 
 **Mamba** 是一种 **状态空间模型**，对于长序列实现了 **线性时间复杂度**，使其在许多任务上比传统 Transformer 更高效。
 
-### 🔥 **v1.0.0 新特性**
+### 🔥 **v1.0.1 新特性**
 
 这个生产版本的特点：
 
@@ -308,7 +308,7 @@ prefix_A = torch.exp(cumsum_log_A)  # 并行 ⚡
 * **论文**: [Mamba: Linear-Time Sequence Modeling with Selective State Spaces](https://arxiv.org/abs/2312.00752) 作者：Albert Gu 与 Tri Dao
 * **参考实现**: [state-spaces/mamba](https://github.com/state-spaces/mamba)
 
-特别感谢社区的反馈和贡献，使 v1.0.0 成为可能。
+特别感谢社区的反馈和贡献，使 v1.0.1 成为可能。
 
 ---
 
@@ -319,4 +319,4 @@ prefix_A = torch.exp(cumsum_log_A)  # 并行 ⚡
 
 ---
 
-*MiniMamba v1.0.0 - 为所有人提供的生产级 Mamba 实现 🚀*
+*MiniMamba v1.0.1 - 为所有人提供的生产级 Mamba 实现 🚀*

@@ -118,7 +118,7 @@ class_config = MambaClassificationConfig(num_labels=3, **base_config)
 
 ### 📊 Performance Benchmarks
 
-| Metric              | v0.2.0 | v1.0.0 | Improvement               |
+| Metric              | v0.2.0 | v1.0.1 | Improvement               |
 | ------------------- | ------ | ------ | ------------------------- |
 | Training Speed      | 1x     | 3x     | 🚀 3x faster              |
 | Inference Memory    | 100%   | 50%    | 🔋 50% reduction          |
@@ -127,7 +127,7 @@ class_config = MambaClassificationConfig(num_labels=3, **base_config)
 
 ### 🔄 Migration Guide
 
-#### From v0.2.x to v1.0.0
+#### From v0.2.x to v1.0.1
 
 **Minimal Migration (Recommended)**
 ```python

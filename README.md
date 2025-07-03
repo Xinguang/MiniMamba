@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/github/stars/Xinguang/MiniMamba?style=for-the-badge"/>
 </p>
 
-**MiniMamba v1.0.0** is a **production-ready** PyTorch implementation of the [Mamba](https://arxiv.org/abs/2312.00752) architecture — a **Selective State Space Model (S6)** for fast and efficient sequence modeling. This major release features optimized parallel scan algorithms, modular architecture, and comprehensive caching support while maintaining simplicity and educational value.
+**MiniMamba v1.0.1** is a **production-ready** PyTorch implementation of the [Mamba](https://arxiv.org/abs/2312.00752) architecture — a **Selective State Space Model (S6)** for fast and efficient sequence modeling. This major release features optimized parallel scan algorithms, modular architecture, and comprehensive caching support while maintaining simplicity and educational value.
 
 > 📂 Repository: [github.com/Xinguang/MiniMamba](https://github.com/Xinguang/MiniMamba)
 > 📋 Improvements: [View detailed improvements](./IMPROVEMENTS.md)
@@ -16,7 +16,7 @@
 
 ## ✨ Features
 
-### 🚀 **Production-Ready v1.0.0**
+### 🚀 **Production-Ready v1.0.1**
 - ⚡ **3x Faster Training**: True parallel scan algorithm (vs. pseudo-parallel)
 - 💾 **50% Memory Reduction**: Smart caching system for efficient inference
 - 🏗️ **Modular Architecture**: Pluggable components and task-specific models
@@ -175,7 +175,7 @@ logits = model(input_ids)
 
 ## 📊 Performance Benchmarks
 
-| Metric | v0.2.0 | **v1.0.0** | Improvement |
+| Metric | v0.2.0 | **v1.0.1** | Improvement |
 |--------|--------|------------|-------------|
 | Training Speed | 1x | **3x** | 🚀 3x faster |
 | Inference Memory | 100% | **50%** | 💾 50% reduction |
@@ -251,7 +251,7 @@ MiniMamba/
 
 **Mamba** is a **state-space model** that achieves **linear time complexity** for long sequences, making it more efficient than traditional transformers for many tasks.
 
-### 🔥 **What's New in v1.0.0**
+### 🔥 **What's New in v1.0.1**
 
 This production release features:
 
@@ -308,7 +308,7 @@ This project is inspired by:
 * **Paper**: [Mamba: Linear-Time Sequence Modeling with Selective State Spaces](https://arxiv.org/abs/2312.00752) by Albert Gu & Tri Dao
 * **Reference Implementation**: [state-spaces/mamba](https://github.com/state-spaces/mamba)
 
-Special thanks to the community for feedback and contributions that made v1.0.0 possible.
+Special thanks to the community for feedback and contributions that made v1.0.1 possible.
 
 ---
 
@@ -319,4 +319,4 @@ Special thanks to the community for feedback and contributions that made v1.0.0 
 
 ---
 
-*MiniMamba v1.0.0 - Production-ready Mamba implementation for everyone 🚀*
+*MiniMamba v1.0.1 - Production-ready Mamba implementation for everyone 🚀*

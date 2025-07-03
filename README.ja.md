@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/github/stars/Xinguang/MiniMamba?style=for-the-badge"/>
 </p>
 
-**MiniMamba v1.0.0** は、[Mamba](https://arxiv.org/abs/2312.00752) アーキテクチャの **本格運用対応** PyTorch 実装です。**Selective State Space Model（S6）** をベースとし、最適化された並列スキャンアルゴリズム、モジュラーアーキテクチャ、包括的なキャッシュサポートを備えながら、シンプルさと教育的価値を維持しています。
+**MiniMamba v1.0.1** は、[Mamba](https://arxiv.org/abs/2312.00752) アーキテクチャの **本格運用対応** PyTorch 実装です。**Selective State Space Model（S6）** をベースとし、最適化された並列スキャンアルゴリズム、モジュラーアーキテクチャ、包括的なキャッシュサポートを備えながら、シンプルさと教育的価値を維持しています。
 
 > 📂 GitHub リポジトリ：[github.com/Xinguang/MiniMamba](https://github.com/Xinguang/MiniMamba)
 > 📋 詳細な改善点：[改善ドキュメントを見る](./IMPROVEMENTS.md)
@@ -16,7 +16,7 @@
 
 ## ✨ 特徴
 
-### 🚀 **本格運用対応 v1.0.0**
+### 🚀 **本格運用対応 v1.0.1**
 - ⚡ **3倍高速な学習**：真の並列スキャンアルゴリズム（擬似並列 vs 真並列）
 - 💾 **50% メモリ削減**：推論効率を向上させるスマートキャッシュシステム
 - 🏗️ **モジュラーアーキテクチャ**：プラガブルコンポーネントとタスク特化型モデル
@@ -175,7 +175,7 @@ logits = model(input_ids)
 
 ## 📊 パフォーマンスベンチマーク
 
-| 指標 | v0.2.0 | **v1.0.0** | 改善 |
+| 指標 | v0.2.0 | **v1.0.1** | 改善 |
 |------|--------|------------|------|
 | 学習速度 | 1x | **3x** | 🚀 3倍高速 |
 | 推論メモリ | 100% | **50%** | 💾 50%削減 |
@@ -251,7 +251,7 @@ MiniMamba/
 
 **Mamba** は **状態空間モデル** で、長いシーケンスに対して **線形時間複雑度** を実現し、多くのタスクで従来の Transformer よりも効率的です。
 
-### 🔥 **v1.0.0 の新機能**
+### 🔥 **v1.0.1 の新機能**
 
 この本格運用版の特徴：
 
@@ -308,7 +308,7 @@ prefix_A = torch.exp(cumsum_log_A)  # 並列 ⚡
 * **論文**: [Mamba: Linear-Time Sequence Modeling with Selective State Spaces](https://arxiv.org/abs/2312.00752) 著者：Albert Gu、Tri Dao
 * **参考実装**: [state-spaces/mamba](https://github.com/state-spaces/mamba)
 
-v1.0.0 を可能にしたコミュニティからのフィードバックと貢献に特に感謝します。
+v1.0.1 を可能にしたコミュニティからのフィードバックと貢献に特に感謝します。
 
 ---
 
@@ -319,4 +319,4 @@ v1.0.0 を可能にしたコミュニティからのフィードバックと貢�
 
 ---
 
-*MiniMamba v1.0.0 - みんなのための本格運用対応 Mamba 実装 🚀*
+*MiniMamba v1.0.1 - みんなのための本格運用対応 Mamba 実装 🚀*
